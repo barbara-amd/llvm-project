@@ -2446,7 +2446,7 @@ bool SIMemoryLegalizer::expandAtomicFence(const SIMemOpInfo &MOI,
     if (Order == AtomicOrdering::Acquire ||
         Order == AtomicOrdering::AcquireRelease ||
         Order == AtomicOrdering::SequentiallyConsistent)
-        Changed |= CC->insertAcquire(MI, MOI.getScope(), OrderingAddrSpace,
+      Changed |= CC->insertAcquire(MI, MOI.getScope(), OrderingAddrSpace,
                                    Position::BEFORE);
 
     return Changed;
