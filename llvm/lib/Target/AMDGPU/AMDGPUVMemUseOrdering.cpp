@@ -1,5 +1,4 @@
-//===--- AMDGPUVMemUseOrdering.cpp - AMDGPU VMEM Use Ordering
-//--------------===//
+//===-- AMDGPUVMemUseOrdering.cpp - AMDGPU VMEM Use Ordering --------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -51,9 +50,6 @@
 #include "AMDGPUVMemUseOrdering.h"
 #include "AMDGPUWaitcntUtils.h"
 #include "GCNSubtarget.h"
-#include "SIInstrInfo.h"
-#include "SIRegisterInfo.h"
-#include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
@@ -91,135 +87,6 @@ public:
   void apply(ScheduleDAGInstrs *DAG) override;
 };
 
-// True iff MI increments only VMEM counters (vmcnt / loadcnt / samplecnt /
-// bvhcnt). Segment-specific FLAT (GLOBAL_LOAD_* / SCRATCH_LOAD_*) only
-// touches vmcnt/loadcnt and is always included.
-// Generic FLAT (flat_load_* / flat_store_*) is included on GFX10+ where
-// hasFlatLgkmVMemCountInOrder() guarantees counters complete in order and
-// partial vmcnt waits are safe.  On GFX9 and earlier, generic FLAT
-// increments both vmcnt and lgkmcnt with a shared early-completion token,
-// so a partial vmcnt wait does not reliably ensure the result is ready.
-static bool isVmemCounterLoad(const MachineInstr &MI, const GCNSubtarget &ST) {
-  if (SIInstrInfo::isMUBUF(MI) || SIInstrInfo::isMTBUF(MI) ||
-      SIInstrInfo::isImage(MI) || SIInstrInfo::isSegmentSpecificFLAT(MI))
-    return true;
-  // Generic flat_load_* on GFX10+: safe to treat as vmcnt-only.
-  return SIInstrInfo::isFLAT(MI) && ST.hasFlatLgkmVMemCountInOrder();
-}
-
-static bool isPureVMemLoad(const MachineInstr &MI, const GCNSubtarget &ST) {
-  if (!MI.mayLoad() || MI.mayStore() || MI.hasUnmodeledSideEffects())
-    return false;
-  // Exclude spill reloads (PseudoSourceValue operands).
-  for (const MachineMemOperand *MMO : MI.memoperands())
-    if (MMO->getPseudoValue())
-      return false;
-  if (MI.getOpcode() != TargetOpcode::BUNDLE)
-    return isVmemCounterLoad(MI, ST);
-  // BUNDLE: confirm every member is a pure VMEM counter load.
-  bool SawMember = false;
-  for (auto It = std::next(MI.getIterator()), E = MI.getParent()->instr_end();
-       It != E && It->isBundledWithPred(); ++It) {
-    if (It->isMetaInstruction() || It->isDebugInstr())
-      continue;
-    if (!It->mayLoad() || It->mayStore() || It->hasUnmodeledSideEffects())
-      return false;
-    if (!isVmemCounterLoad(*It, ST))
-      return false;
-    SawMember = true;
-  }
-  return SawMember;
-}
-
-// Returns the VMEM hardware counter that MI increments.
-// Pre-GFX12: all VMEM loads share a single LOAD_CNT (vmcnt).
-// GFX12+: BVH → BVH_CNT; sampler/MSAA IMAGE → SAMPLE_CNT; all others →
-// LOAD_CNT.
-static AMDGPU::InstCounterType vmemCounterForLoad(const MachineInstr &MI,
-                                                  const GCNSubtarget &ST) {
-  if (!ST.hasExtendedWaitCounts())
-    return AMDGPU::LOAD_CNT;
-  if (!SIInstrInfo::isImage(MI))
-    return AMDGPU::LOAD_CNT;
-  const AMDGPU::MIMGInfo *Info = AMDGPU::getMIMGInfo(MI.getOpcode());
-  if (!Info)
-    return AMDGPU::LOAD_CNT;
-  const AMDGPU::MIMGBaseOpcodeInfo *BaseInfo =
-      AMDGPU::getMIMGBaseOpcodeInfo(Info->BaseOpcode);
-  if (BaseInfo->BVH)
-    return AMDGPU::BVH_CNT;
-  if (BaseInfo->Sampler || BaseInfo->MSAA || SIInstrInfo::isVSAMPLE(MI))
-    return AMDGPU::SAMPLE_CNT;
-  return AMDGPU::LOAD_CNT;
-}
-
-// Tracks which VMEM counter classes have been waited to zero during a block
-// scan.  Pre-GFX12 has one unified counter (LOAD_CNT); GFX12+ splits into
-// LOAD_CNT, SAMPLE_CNT, and BVH_CNT.
-struct VmemClearedState {
-  bool LoadCnt = false;
-  bool SampleCnt = false;
-  bool BvhCnt = false;
-
-  void update(const MachineInstr &MI, const GCNSubtarget &ST) {
-    if (MI.getNumOperands() == 0 || !MI.getOperand(0).isImm())
-      return;
-    uint64_t Imm = MI.getOperand(0).getImm();
-    if (!ST.hasExtendedWaitCounts()) {
-      if (MI.getOpcode() == AMDGPU::S_WAITCNT) {
-        AMDGPU::Waitcnt W =
-            AMDGPU::decodeWaitcnt(AMDGPU::getIsaVersion(ST.getCPU()), Imm);
-        if (W.get(AMDGPU::LOAD_CNT) == 0)
-          LoadCnt = true;
-      }
-      return;
-    }
-    switch (MI.getOpcode()) {
-    case AMDGPU::S_WAIT_LOADCNT:
-      if (Imm == 0)
-        LoadCnt = true;
-      break;
-    case AMDGPU::S_WAIT_SAMPLECNT:
-      if (Imm == 0)
-        SampleCnt = true;
-      break;
-    case AMDGPU::S_WAIT_BVHCNT:
-      if (Imm == 0)
-        BvhCnt = true;
-      break;
-    case AMDGPU::S_WAIT_LOADCNT_DSCNT: {
-      AMDGPU::Waitcnt W =
-          AMDGPU::decodeLoadcntDscnt(AMDGPU::getIsaVersion(ST.getCPU()), Imm);
-      if (W.get(AMDGPU::LOAD_CNT) == 0)
-        LoadCnt = true;
-      break;
-    }
-    default:
-      break;
-    }
-  }
-
-  bool clears(AMDGPU::InstCounterType CT) const {
-    switch (CT) {
-    case AMDGPU::LOAD_CNT:
-      return LoadCnt;
-    case AMDGPU::SAMPLE_CNT:
-      return SampleCnt;
-    case AMDGPU::BVH_CNT:
-      return BvhCnt;
-    default:
-      return false;
-    }
-  }
-
-  // True if all VMEM counter classes relevant to ST have been zeroed.
-  bool allCleared(const GCNSubtarget &ST) const {
-    if (!ST.hasExtendedWaitCounts())
-      return LoadCnt;
-    return LoadCnt && SampleCnt && BvhCnt;
-  }
-};
-
 // Walk the predecessor CFG backward from CurMBB, classifying all register
 // units in Candidates.  Units whose last reaching definition on any predecessor
 // path is an unwaited VMEM load are added to PendingUnits.  The shared Visited
@@ -240,12 +107,12 @@ gatherVMemPendingUnits(const MachineBasicBlock *CurMBB,
       continue;
 
     SmallDenseSet<MCRegUnit, 16> Unresolved = Candidates;
-    VmemClearedState Cleared;
+    AMDGPU::VmemClearedState Cleared;
 
     for (auto It = Pred->rbegin(), E = Pred->rend();
          It != E && !Unresolved.empty(); ++It) {
       const MachineInstr &MI = *It;
-      if (MI.isMetaInstruction() || MI.isDebugInstr())
+      if (MI.isMetaInstruction())
         continue;
 
       // Check defs before updating Cleared: Cleared must only reflect
@@ -253,9 +120,9 @@ gatherVMemPendingUnits(const MachineBasicBlock *CurMBB,
       // A non-VMEM def resolves the unit as not-pending: a unit is only
       // pending when its last writer is positively identified as a pure
       // VMEM load.
-      bool IsVMem = isPureVMemLoad(MI, ST);
+      bool IsVMem = AMDGPU::isPureVMemLoad(MI, ST);
       AMDGPU::InstCounterType CT =
-          IsVMem ? vmemCounterForLoad(MI, ST) : AMDGPU::LOAD_CNT;
+          IsVMem ? AMDGPU::getVmemLoadCounter(MI, ST) : AMDGPU::LOAD_CNT;
       SmallVector<MCRegUnit, 4> JustResolved;
       for (const MachineOperand &MO : MI.operands()) {
         if (!MO.isReg() || !MO.isDef() || !MO.getReg().isPhysical())
@@ -314,14 +181,19 @@ void VMemUseOrdering::apply(ScheduleDAGInstrs *DAG) {
   // Map from register unit to the counter type of its last VMEM writer.
   // A unit absent from the map is not VMEM-pending (last writer was non-VMEM,
   // or the unit was cleared by a wait).
-  if (DAG->begin() != MBB->begin()) {
+  //
+  // Skip leading debug instructions so the guard reflects real content;
+  // remaining non-debug meta (KILL, IMPLICIT_DEF, CFI, ...) is filtered below.
+  auto PreRegionBegin =
+      skipDebugInstructionsForward(MBB->begin(), DAG->begin());
+  if (PreRegionBegin != DAG->begin()) {
     SmallDenseMap<MCRegUnit, AMDGPU::InstCounterType, 32> UnitLastVMemCT;
-    for (const MachineInstr &MI : make_range(MBB->begin(), DAG->begin())) {
-      if (MI.isMetaInstruction() || MI.isDebugInstr())
+    for (const MachineInstr &MI : make_range(PreRegionBegin, DAG->begin())) {
+      if (MI.isMetaInstruction())
         continue;
-      VmemClearedState Cleared;
+      AMDGPU::VmemClearedState Cleared;
       Cleared.update(MI, ST);
-      if (Cleared.LoadCnt || Cleared.SampleCnt || Cleared.BvhCnt) {
+      if (Cleared.anyCleared()) {
         SmallVector<MCRegUnit, 8> ToErase;
         for (const auto &[Unit, CT] : UnitLastVMemCT)
           if (Cleared.clears(CT))
@@ -330,13 +202,13 @@ void VMemUseOrdering::apply(ScheduleDAGInstrs *DAG) {
           UnitLastVMemCT.erase(Unit);
         continue;
       }
-      bool IsVMem = isPureVMemLoad(MI, ST);
+      bool IsVMem = AMDGPU::isPureVMemLoad(MI, ST);
       for (const MachineOperand &MO : MI.operands()) {
         if (!MO.isReg() || !MO.isDef() || !MO.getReg().isPhysical())
           continue;
         for (MCRegUnit Unit : TRI->regunits(MO.getReg().asMCReg())) {
           if (IsVMem)
-            UnitLastVMemCT[Unit] = vmemCounterForLoad(MI, ST);
+            UnitLastVMemCT[Unit] = AMDGPU::getVmemLoadCounter(MI, ST);
           else
             UnitLastVMemCT.erase(Unit);
         }
@@ -362,7 +234,7 @@ void VMemUseOrdering::apply(ScheduleDAGInstrs *DAG) {
   SmallVector<SUnit *, 8> VMemLoadSUs;
   for (SUnit &SU : DAG->SUnits) {
     const MachineInstr *MI = SU.getInstr();
-    if (MI && isPureVMemLoad(*MI, ST))
+    if (MI && AMDGPU::isPureVMemLoad(*MI, ST))
       VMemLoadSUs.push_back(&SU);
   }
   if (VMemLoadSUs.empty())
