@@ -100,12 +100,12 @@ body: |
   ; GFX12-ON-NEXT:   $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
+  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT:   BUNDLE implicit-def $vgpr5_vgpr6_vgpr7_vgpr8, implicit-def $vgpr9_vgpr10_vgpr11_vgpr12, implicit-def $vgpr13_vgpr14_vgpr15_vgpr16, implicit killed $vgpr33_vgpr34, implicit $exec :: (load (s128), addrspace 1), (load (s128), addrspace 1), (load (s128), addrspace 1) {
   ; GFX12-ON-NEXT:     $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:     $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:     $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   }
-  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr17 = V_FMA_F32_e64 0, $vgpr41, 0, $vgpr7, 0, killed $vgpr8, 0, 0, implicit $mode, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr18 = V_FMA_F32_e64 0, $vgpr41, 0, $vgpr11, 0, killed $vgpr12, 0, 0, implicit $mode, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr19 = V_FMA_F32_e64 0, killed $vgpr41, 0, $vgpr15, 0, killed $vgpr16, 0, 0, implicit $mode, implicit $exec
@@ -253,12 +253,12 @@ body: |
     ; GFX12-ON-NEXT: $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
     ; GFX12-ON-NEXT: $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
     ; GFX12-ON-NEXT: $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
+    ; GFX12-ON-NEXT: V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
     ; GFX12-ON-NEXT: BUNDLE implicit-def $vgpr5_vgpr6_vgpr7_vgpr8, implicit-def $vgpr9_vgpr10_vgpr11_vgpr12, implicit-def $vgpr13_vgpr14_vgpr15_vgpr16, implicit killed $vgpr33_vgpr34, implicit $exec :: (load (s128), addrspace 1), (load (s128), addrspace 1), (load (s128), addrspace 1) {
     ; GFX12-ON-NEXT:   $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
     ; GFX12-ON-NEXT:   $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
     ; GFX12-ON-NEXT:   $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
     ; GFX12-ON-NEXT: }
-    ; GFX12-ON-NEXT: V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
     ; GFX12-ON-NEXT: $vgpr17 = V_FMA_F32_e64 0, $vgpr41, 0, $vgpr7, 0, killed $vgpr8, 0, 0, implicit $mode, implicit $exec
     ; GFX12-ON-NEXT: $vgpr18 = V_FMA_F32_e64 0, $vgpr41, 0, $vgpr11, 0, killed $vgpr12, 0, 0, implicit $mode, implicit $exec
     ; GFX12-ON-NEXT: $vgpr19 = V_FMA_F32_e64 0, killed $vgpr41, 0, $vgpr15, 0, killed $vgpr16, 0, 0, implicit $mode, implicit $exec
@@ -393,6 +393,7 @@ body: |
   ; GFX12-ON-NEXT:   liveins: $sgpr8, $vgpr30_vgpr31, $vgpr0_vgpr1_vgpr2_vgpr3, $vgpr40, $vgpr41
   ; GFX12-ON-NEXT: {{  $}}
   ; GFX12-ON-NEXT:   $vgpr32 = V_LSHLREV_B32_e32 3, killed $vgpr40, implicit $exec
+  ; GFX12-ON-NEXT:   $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr0_vgpr1, 0, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
@@ -400,10 +401,9 @@ body: |
   ; GFX12-ON-NEXT:     $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:     $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   }
-  ; GFX12-ON-NEXT:   $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr0_vgpr1, 0, 0, implicit $exec :: (load (s128), addrspace 1)
+  ; GFX12-ON-NEXT:   $vgpr19 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr13, 0, killed $vgpr14, 0, 0, implicit $mode, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr17 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr5, 0, killed $vgpr6, 0, 0, implicit $mode, implicit $exec
-  ; GFX12-ON-NEXT:   $vgpr18 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr9, 0, killed $vgpr10, 0, 0, implicit $mode, implicit $exec
-  ; GFX12-ON-NEXT:   $vgpr19 = V_FMA_F32_e64 0, killed $vgpr41, 0, killed $vgpr13, 0, killed $vgpr14, 0, 0, implicit $mode, implicit $exec
+  ; GFX12-ON-NEXT:   $vgpr18 = V_FMA_F32_e64 0, killed $vgpr41, 0, killed $vgpr9, 0, killed $vgpr10, 0, 0, implicit $mode, implicit $exec
   ; GFX12-ON-NEXT: {{  $}}
   ; GFX12-ON-NEXT: bb.2:
   ; GFX12-ON-NEXT:   liveins: $sgpr8
@@ -564,10 +564,10 @@ body: |
   ; GFX12-ON-NEXT:   $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
+  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
-  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr17 = V_FMA_F32_e64 0, $vgpr41, 0, $vgpr7, 0, killed $vgpr8, 0, 0, implicit $mode, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr18 = V_FMA_F32_e64 0, $vgpr41, 0, $vgpr11, 0, killed $vgpr12, 0, 0, implicit $mode, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr19 = V_FMA_F32_e64 0, killed $vgpr41, 0, $vgpr15, 0, killed $vgpr16, 0, 0, implicit $mode, implicit $exec
@@ -1110,12 +1110,12 @@ body: |
   ; GFX12-ON-NEXT:   $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
+  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT:   BUNDLE implicit-def $vgpr5_vgpr6_vgpr7_vgpr8, implicit-def $vgpr9_vgpr10_vgpr11_vgpr12, implicit-def $vgpr13_vgpr14_vgpr15_vgpr16, implicit killed $vgpr33_vgpr34, implicit $exec :: (load (s128), addrspace 1), (load (s128), addrspace 1), (load (s128), addrspace 1) {
   ; GFX12-ON-NEXT:     $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:     $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:     $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   }
-  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr17 = V_FMA_F32_e64 0, $vgpr41, 0, $vgpr7, 0, killed $vgpr8, 0, 0, implicit $mode, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr18 = V_FMA_F32_e64 0, $vgpr41, 0, $vgpr11, 0, killed $vgpr12, 0, 0, implicit $mode, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr19 = V_FMA_F32_e64 0, killed $vgpr41, 0, $vgpr15, 0, killed $vgpr16, 0, 0, implicit $mode, implicit $exec
@@ -1285,6 +1285,7 @@ body: |
   ; GFX12-ON-NEXT:   liveins: $sgpr8, $vgpr0_vgpr1_vgpr2_vgpr3, $vgpr30_vgpr31, $vgpr40, $vgpr41, $sgpr4_sgpr5_sgpr6_sgpr7, $vgpr20_vgpr21_vgpr22, $vgpr23_vgpr24_vgpr25, $vgpr26_vgpr27_vgpr28
   ; GFX12-ON-NEXT: {{  $}}
   ; GFX12-ON-NEXT:   $vgpr32 = V_LSHLREV_B32_e32 3, killed $vgpr40, implicit $exec
+  ; GFX12-ON-NEXT:   $vgpr35_vgpr36_vgpr37_vgpr38 = IMAGE_BVH_INTERSECT_RAY_gfx12 killed $vgpr0, killed $vgpr1, killed $vgpr20_vgpr21_vgpr22, killed $vgpr23_vgpr24_vgpr25, killed $vgpr26_vgpr27_vgpr28, killed renamable $sgpr4_sgpr5_sgpr6_sgpr7, 0, implicit $exec :: (dereferenceable load (s128), addrspace 8)
   ; GFX12-ON-NEXT:   $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
@@ -1293,7 +1294,6 @@ body: |
   ; GFX12-ON-NEXT:     $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:     $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   }
-  ; GFX12-ON-NEXT:   $vgpr35_vgpr36_vgpr37_vgpr38 = IMAGE_BVH_INTERSECT_RAY_gfx12 killed $vgpr0, killed $vgpr1, killed $vgpr20_vgpr21_vgpr22, killed $vgpr23_vgpr24_vgpr25, killed $vgpr26_vgpr27_vgpr28, killed renamable $sgpr4_sgpr5_sgpr6_sgpr7, 0, implicit $exec :: (dereferenceable load (s128), addrspace 8)
   ; GFX12-ON-NEXT:   $vgpr17 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr7, 0, killed $vgpr8, 0, 0, implicit $mode, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr18 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr11, 0, killed $vgpr12, 0, 0, implicit $mode, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr19 = V_FMA_F32_e64 0, killed $vgpr41, 0, killed $vgpr15, 0, killed $vgpr16, 0, 0, implicit $mode, implicit $exec
@@ -1392,10 +1392,10 @@ body: |
   ; GFX11-ON-NEXT:   $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
   ; GFX11-ON-NEXT:   $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
   ; GFX11-ON-NEXT:   $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
-  ; GFX11-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX11-ON-NEXT:   $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX11-ON-NEXT:   $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX11-ON-NEXT:   $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
+  ; GFX11-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX11-ON-NEXT: {{  $}}
   ; GFX11-ON-NEXT: bb.2:
   ; GFX11-ON-NEXT:   liveins: $sgpr8
@@ -1450,10 +1450,10 @@ body: |
   ; GFX12-ON-NEXT:   $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
+  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
-  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT: {{  $}}
   ; GFX12-ON-NEXT: bb.2:
   ; GFX12-ON-NEXT:   liveins: $sgpr8
@@ -1593,13 +1593,13 @@ body: |
   ; GFX12-ON-NEXT:   liveins: $sgpr8, $vgpr30_vgpr31, $vgpr0_vgpr1_vgpr2_vgpr3, $vgpr40
   ; GFX12-ON-NEXT: {{  $}}
   ; GFX12-ON-NEXT:   $vgpr32 = V_LSHLREV_B32_e32 3, killed $vgpr40, implicit $exec
+  ; GFX12-ON-NEXT:   $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr0_vgpr1, 0, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
+  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr2, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
-  ; GFX12-ON-NEXT:   $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr0_vgpr1, 0, 0, implicit $exec :: (load (s128), addrspace 1)
-  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr2, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT: {{  $}}
   ; GFX12-ON-NEXT: bb.2:
   ; GFX12-ON-NEXT:   liveins: $sgpr8
@@ -1971,6 +1971,181 @@ body: |
     $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
     $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
     V_CMP_EQ_U32_e32 -1, $vgpr1, implicit-def $vcc, implicit $exec
+    $exec_lo = S_OR_B32 $exec_lo, killed $sgpr8, implicit-def $scc
+    S_ENDPGM 0
+...
+
+---
+name: vmem_pending_livein_gfx12_mixed_class
+tracksRegLiveness: true
+machineFunctionInfo:
+  isEntryFunction: true
+body: |
+  ; GFX11-ON-LABEL: name: vmem_pending_livein_gfx12_mixed_class
+  ; GFX11-ON: bb.0:
+  ; GFX11-ON-NEXT:   successors: %bb.1(0x40000000), %bb.2(0x40000000)
+  ; GFX11-ON-NEXT:   liveins: $vgpr4, $vgpr5, $vgpr6_vgpr7_vgpr8, $vgpr9_vgpr10_vgpr11, $vgpr12_vgpr13_vgpr14, $vgpr30_vgpr31, $vgpr40, $vgpr41, $sgpr0_sgpr1_sgpr2_sgpr3, $sgpr8, $vcc_lo
+  ; GFX11-ON-NEXT: {{  $}}
+  ; GFX11-ON-NEXT:   $vgpr0_vgpr1_vgpr2_vgpr3 = IMAGE_BVH_INTERSECT_RAY_gfx12 killed $vgpr4, killed $vgpr5, killed $vgpr6_vgpr7_vgpr8, killed $vgpr9_vgpr10_vgpr11, killed $vgpr12_vgpr13_vgpr14, killed renamable $sgpr0_sgpr1_sgpr2_sgpr3, 0, implicit $exec :: (dereferenceable load (s128), addrspace 8)
+  ; GFX11-ON-NEXT:   $sgpr8 = S_AND_SAVEEXEC_B32 killed $vcc_lo, implicit-def $exec, implicit-def $scc, implicit $exec
+  ; GFX11-ON-NEXT:   S_CBRANCH_EXECZ %bb.2, implicit $exec
+  ; GFX11-ON-NEXT: {{  $}}
+  ; GFX11-ON-NEXT: bb.1:
+  ; GFX11-ON-NEXT:   successors: %bb.2(0x80000000)
+  ; GFX11-ON-NEXT:   liveins: $sgpr8, $vgpr0_vgpr1_vgpr2_vgpr3, $vgpr30_vgpr31, $vgpr40, $vgpr41, $sgpr4_sgpr5_sgpr6_sgpr7, $vgpr20_vgpr21_vgpr22, $vgpr23_vgpr24_vgpr25, $vgpr26_vgpr27_vgpr28
+  ; GFX11-ON-NEXT: {{  $}}
+  ; GFX11-ON-NEXT:   $vgpr32 = V_LSHLREV_B32_e32 3, killed $vgpr40, implicit $exec
+  ; GFX11-ON-NEXT:   $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
+  ; GFX11-ON-NEXT:   $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
+  ; GFX11-ON-NEXT:   $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
+  ; GFX11-ON-NEXT:   BUNDLE implicit-def $vgpr5_vgpr6_vgpr7_vgpr8, implicit-def $vgpr9_vgpr10_vgpr11_vgpr12, implicit-def $vgpr13_vgpr14_vgpr15_vgpr16, implicit killed $vgpr33_vgpr34, implicit $exec :: (load (s128), addrspace 1), (load (s128), addrspace 1), (load (s128), addrspace 1) {
+  ; GFX11-ON-NEXT:     $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
+  ; GFX11-ON-NEXT:     $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
+  ; GFX11-ON-NEXT:     $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
+  ; GFX11-ON-NEXT:   }
+  ; GFX11-ON-NEXT:   $vgpr35_vgpr36_vgpr37_vgpr38 = IMAGE_BVH_INTERSECT_RAY_gfx12 killed $vgpr0, killed $vgpr1, killed $vgpr20_vgpr21_vgpr22, killed $vgpr23_vgpr24_vgpr25, killed $vgpr26_vgpr27_vgpr28, killed renamable $sgpr4_sgpr5_sgpr6_sgpr7, 0, implicit $exec :: (dereferenceable load (s128), addrspace 8)
+  ; GFX11-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr2, implicit-def $vcc_lo, implicit $exec
+  ; GFX11-ON-NEXT:   $vgpr17 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr7, 0, killed $vgpr8, 0, 0, implicit $mode, implicit $exec
+  ; GFX11-ON-NEXT:   $vgpr18 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr11, 0, killed $vgpr12, 0, 0, implicit $mode, implicit $exec
+  ; GFX11-ON-NEXT:   $vgpr19 = V_FMA_F32_e64 0, killed $vgpr41, 0, killed $vgpr15, 0, killed $vgpr16, 0, 0, implicit $mode, implicit $exec
+  ; GFX11-ON-NEXT: {{  $}}
+  ; GFX11-ON-NEXT: bb.2:
+  ; GFX11-ON-NEXT:   liveins: $sgpr8
+  ; GFX11-ON-NEXT: {{  $}}
+  ; GFX11-ON-NEXT:   $exec_lo = S_OR_B32 $exec_lo, killed $sgpr8, implicit-def $scc
+  ; GFX11-ON-NEXT:   S_ENDPGM 0
+  ;
+  ; GFX11-OFF-LABEL: name: vmem_pending_livein_gfx12_mixed_class
+  ; GFX11-OFF: bb.0:
+  ; GFX11-OFF-NEXT:   successors: %bb.1(0x40000000), %bb.2(0x40000000)
+  ; GFX11-OFF-NEXT:   liveins: $vgpr4, $vgpr5, $vgpr6_vgpr7_vgpr8, $vgpr9_vgpr10_vgpr11, $vgpr12_vgpr13_vgpr14, $vgpr30_vgpr31, $vgpr40, $vgpr41, $sgpr0_sgpr1_sgpr2_sgpr3, $sgpr8, $vcc_lo
+  ; GFX11-OFF-NEXT: {{  $}}
+  ; GFX11-OFF-NEXT:   $vgpr0_vgpr1_vgpr2_vgpr3 = IMAGE_BVH_INTERSECT_RAY_gfx12 killed $vgpr4, killed $vgpr5, killed $vgpr6_vgpr7_vgpr8, killed $vgpr9_vgpr10_vgpr11, killed $vgpr12_vgpr13_vgpr14, killed renamable $sgpr0_sgpr1_sgpr2_sgpr3, 0, implicit $exec :: (dereferenceable load (s128), addrspace 8)
+  ; GFX11-OFF-NEXT:   $sgpr8 = S_AND_SAVEEXEC_B32 killed $vcc_lo, implicit-def $exec, implicit-def $scc, implicit $exec
+  ; GFX11-OFF-NEXT:   S_CBRANCH_EXECZ %bb.2, implicit $exec
+  ; GFX11-OFF-NEXT: {{  $}}
+  ; GFX11-OFF-NEXT: bb.1:
+  ; GFX11-OFF-NEXT:   successors: %bb.2(0x80000000)
+  ; GFX11-OFF-NEXT:   liveins: $sgpr8, $vgpr0_vgpr1_vgpr2_vgpr3, $vgpr30_vgpr31, $vgpr40, $vgpr41, $sgpr4_sgpr5_sgpr6_sgpr7, $vgpr20_vgpr21_vgpr22, $vgpr23_vgpr24_vgpr25, $vgpr26_vgpr27_vgpr28
+  ; GFX11-OFF-NEXT: {{  $}}
+  ; GFX11-OFF-NEXT:   $vgpr32 = V_LSHLREV_B32_e32 3, killed $vgpr40, implicit $exec
+  ; GFX11-OFF-NEXT:   $vgpr35_vgpr36_vgpr37_vgpr38 = IMAGE_BVH_INTERSECT_RAY_gfx12 killed $vgpr0, killed $vgpr1, killed $vgpr20_vgpr21_vgpr22, killed $vgpr23_vgpr24_vgpr25, killed $vgpr26_vgpr27_vgpr28, killed renamable $sgpr4_sgpr5_sgpr6_sgpr7, 0, implicit $exec :: (dereferenceable load (s128), addrspace 8)
+  ; GFX11-OFF-NEXT:   $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
+  ; GFX11-OFF-NEXT:   $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
+  ; GFX11-OFF-NEXT:   $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
+  ; GFX11-OFF-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr2, implicit-def $vcc_lo, implicit $exec
+  ; GFX11-OFF-NEXT:   BUNDLE implicit-def $vgpr5_vgpr6_vgpr7_vgpr8, implicit-def $vgpr9_vgpr10_vgpr11_vgpr12, implicit-def $vgpr13_vgpr14_vgpr15_vgpr16, implicit killed $vgpr33_vgpr34, implicit $exec :: (load (s128), addrspace 1), (load (s128), addrspace 1), (load (s128), addrspace 1) {
+  ; GFX11-OFF-NEXT:     $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
+  ; GFX11-OFF-NEXT:     $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
+  ; GFX11-OFF-NEXT:     $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
+  ; GFX11-OFF-NEXT:   }
+  ; GFX11-OFF-NEXT:   $vgpr17 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr7, 0, killed $vgpr8, 0, 0, implicit $mode, implicit $exec
+  ; GFX11-OFF-NEXT:   $vgpr18 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr11, 0, killed $vgpr12, 0, 0, implicit $mode, implicit $exec
+  ; GFX11-OFF-NEXT:   $vgpr19 = V_FMA_F32_e64 0, killed $vgpr41, 0, killed $vgpr15, 0, killed $vgpr16, 0, 0, implicit $mode, implicit $exec
+  ; GFX11-OFF-NEXT: {{  $}}
+  ; GFX11-OFF-NEXT: bb.2:
+  ; GFX11-OFF-NEXT:   liveins: $sgpr8
+  ; GFX11-OFF-NEXT: {{  $}}
+  ; GFX11-OFF-NEXT:   $exec_lo = S_OR_B32 $exec_lo, killed $sgpr8, implicit-def $scc
+  ; GFX11-OFF-NEXT:   S_ENDPGM 0
+  ;
+  ; GFX12-ON-LABEL: name: vmem_pending_livein_gfx12_mixed_class
+  ; GFX12-ON: bb.0:
+  ; GFX12-ON-NEXT:   successors: %bb.1(0x40000000), %bb.2(0x40000000)
+  ; GFX12-ON-NEXT:   liveins: $vgpr4, $vgpr5, $vgpr6_vgpr7_vgpr8, $vgpr9_vgpr10_vgpr11, $vgpr12_vgpr13_vgpr14, $vgpr30_vgpr31, $vgpr40, $vgpr41, $sgpr0_sgpr1_sgpr2_sgpr3, $sgpr8, $vcc_lo
+  ; GFX12-ON-NEXT: {{  $}}
+  ; GFX12-ON-NEXT:   $vgpr0_vgpr1_vgpr2_vgpr3 = IMAGE_BVH_INTERSECT_RAY_gfx12 killed $vgpr4, killed $vgpr5, killed $vgpr6_vgpr7_vgpr8, killed $vgpr9_vgpr10_vgpr11, killed $vgpr12_vgpr13_vgpr14, killed renamable $sgpr0_sgpr1_sgpr2_sgpr3, 0, implicit $exec :: (dereferenceable load (s128), addrspace 8)
+  ; GFX12-ON-NEXT:   $sgpr8 = S_AND_SAVEEXEC_B32 killed $vcc_lo, implicit-def $exec, implicit-def $scc, implicit $exec
+  ; GFX12-ON-NEXT:   S_CBRANCH_EXECZ %bb.2, implicit $exec
+  ; GFX12-ON-NEXT: {{  $}}
+  ; GFX12-ON-NEXT: bb.1:
+  ; GFX12-ON-NEXT:   successors: %bb.2(0x80000000)
+  ; GFX12-ON-NEXT:   liveins: $sgpr8, $vgpr0_vgpr1_vgpr2_vgpr3, $vgpr30_vgpr31, $vgpr40, $vgpr41, $sgpr4_sgpr5_sgpr6_sgpr7, $vgpr20_vgpr21_vgpr22, $vgpr23_vgpr24_vgpr25, $vgpr26_vgpr27_vgpr28
+  ; GFX12-ON-NEXT: {{  $}}
+  ; GFX12-ON-NEXT:   $vgpr32 = V_LSHLREV_B32_e32 3, killed $vgpr40, implicit $exec
+  ; GFX12-ON-NEXT:   $vgpr35_vgpr36_vgpr37_vgpr38 = IMAGE_BVH_INTERSECT_RAY_gfx12 killed $vgpr0, killed $vgpr1, killed $vgpr20_vgpr21_vgpr22, killed $vgpr23_vgpr24_vgpr25, killed $vgpr26_vgpr27_vgpr28, killed renamable $sgpr4_sgpr5_sgpr6_sgpr7, 0, implicit $exec :: (dereferenceable load (s128), addrspace 8)
+  ; GFX12-ON-NEXT:   $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
+  ; GFX12-ON-NEXT:   $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
+  ; GFX12-ON-NEXT:   $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
+  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr2, implicit-def $vcc_lo, implicit $exec
+  ; GFX12-ON-NEXT:   BUNDLE implicit-def $vgpr5_vgpr6_vgpr7_vgpr8, implicit-def $vgpr9_vgpr10_vgpr11_vgpr12, implicit-def $vgpr13_vgpr14_vgpr15_vgpr16, implicit killed $vgpr33_vgpr34, implicit $exec :: (load (s128), addrspace 1), (load (s128), addrspace 1), (load (s128), addrspace 1) {
+  ; GFX12-ON-NEXT:     $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
+  ; GFX12-ON-NEXT:     $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
+  ; GFX12-ON-NEXT:     $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
+  ; GFX12-ON-NEXT:   }
+  ; GFX12-ON-NEXT:   $vgpr17 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr7, 0, killed $vgpr8, 0, 0, implicit $mode, implicit $exec
+  ; GFX12-ON-NEXT:   $vgpr18 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr11, 0, killed $vgpr12, 0, 0, implicit $mode, implicit $exec
+  ; GFX12-ON-NEXT:   $vgpr19 = V_FMA_F32_e64 0, killed $vgpr41, 0, killed $vgpr15, 0, killed $vgpr16, 0, 0, implicit $mode, implicit $exec
+  ; GFX12-ON-NEXT: {{  $}}
+  ; GFX12-ON-NEXT: bb.2:
+  ; GFX12-ON-NEXT:   liveins: $sgpr8
+  ; GFX12-ON-NEXT: {{  $}}
+  ; GFX12-ON-NEXT:   $exec_lo = S_OR_B32 $exec_lo, killed $sgpr8, implicit-def $scc
+  ; GFX12-ON-NEXT:   S_ENDPGM 0
+  ;
+  ; GFX12-OFF-LABEL: name: vmem_pending_livein_gfx12_mixed_class
+  ; GFX12-OFF: bb.0:
+  ; GFX12-OFF-NEXT:   successors: %bb.1(0x40000000), %bb.2(0x40000000)
+  ; GFX12-OFF-NEXT:   liveins: $vgpr4, $vgpr5, $vgpr6_vgpr7_vgpr8, $vgpr9_vgpr10_vgpr11, $vgpr12_vgpr13_vgpr14, $vgpr30_vgpr31, $vgpr40, $vgpr41, $sgpr0_sgpr1_sgpr2_sgpr3, $sgpr8, $vcc_lo
+  ; GFX12-OFF-NEXT: {{  $}}
+  ; GFX12-OFF-NEXT:   $vgpr0_vgpr1_vgpr2_vgpr3 = IMAGE_BVH_INTERSECT_RAY_gfx12 killed $vgpr4, killed $vgpr5, killed $vgpr6_vgpr7_vgpr8, killed $vgpr9_vgpr10_vgpr11, killed $vgpr12_vgpr13_vgpr14, killed renamable $sgpr0_sgpr1_sgpr2_sgpr3, 0, implicit $exec :: (dereferenceable load (s128), addrspace 8)
+  ; GFX12-OFF-NEXT:   $sgpr8 = S_AND_SAVEEXEC_B32 killed $vcc_lo, implicit-def $exec, implicit-def $scc, implicit $exec
+  ; GFX12-OFF-NEXT:   S_CBRANCH_EXECZ %bb.2, implicit $exec
+  ; GFX12-OFF-NEXT: {{  $}}
+  ; GFX12-OFF-NEXT: bb.1:
+  ; GFX12-OFF-NEXT:   successors: %bb.2(0x80000000)
+  ; GFX12-OFF-NEXT:   liveins: $sgpr8, $vgpr0_vgpr1_vgpr2_vgpr3, $vgpr30_vgpr31, $vgpr40, $vgpr41, $sgpr4_sgpr5_sgpr6_sgpr7, $vgpr20_vgpr21_vgpr22, $vgpr23_vgpr24_vgpr25, $vgpr26_vgpr27_vgpr28
+  ; GFX12-OFF-NEXT: {{  $}}
+  ; GFX12-OFF-NEXT:   $vgpr32 = V_LSHLREV_B32_e32 3, killed $vgpr40, implicit $exec
+  ; GFX12-OFF-NEXT:   $vgpr35_vgpr36_vgpr37_vgpr38 = IMAGE_BVH_INTERSECT_RAY_gfx12 killed $vgpr0, killed $vgpr1, killed $vgpr20_vgpr21_vgpr22, killed $vgpr23_vgpr24_vgpr25, killed $vgpr26_vgpr27_vgpr28, killed renamable $sgpr4_sgpr5_sgpr6_sgpr7, 0, implicit $exec :: (dereferenceable load (s128), addrspace 8)
+  ; GFX12-OFF-NEXT:   $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
+  ; GFX12-OFF-NEXT:   $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
+  ; GFX12-OFF-NEXT:   $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
+  ; GFX12-OFF-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr2, implicit-def $vcc_lo, implicit $exec
+  ; GFX12-OFF-NEXT:   BUNDLE implicit-def $vgpr5_vgpr6_vgpr7_vgpr8, implicit-def $vgpr9_vgpr10_vgpr11_vgpr12, implicit-def $vgpr13_vgpr14_vgpr15_vgpr16, implicit killed $vgpr33_vgpr34, implicit $exec :: (load (s128), addrspace 1), (load (s128), addrspace 1), (load (s128), addrspace 1) {
+  ; GFX12-OFF-NEXT:     $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
+  ; GFX12-OFF-NEXT:     $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
+  ; GFX12-OFF-NEXT:     $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
+  ; GFX12-OFF-NEXT:   }
+  ; GFX12-OFF-NEXT:   $vgpr17 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr7, 0, killed $vgpr8, 0, 0, implicit $mode, implicit $exec
+  ; GFX12-OFF-NEXT:   $vgpr18 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr11, 0, killed $vgpr12, 0, 0, implicit $mode, implicit $exec
+  ; GFX12-OFF-NEXT:   $vgpr19 = V_FMA_F32_e64 0, killed $vgpr41, 0, killed $vgpr15, 0, killed $vgpr16, 0, 0, implicit $mode, implicit $exec
+  ; GFX12-OFF-NEXT: {{  $}}
+  ; GFX12-OFF-NEXT: bb.2:
+  ; GFX12-OFF-NEXT:   liveins: $sgpr8
+  ; GFX12-OFF-NEXT: {{  $}}
+  ; GFX12-OFF-NEXT:   $exec_lo = S_OR_B32 $exec_lo, killed $sgpr8, implicit-def $scc
+  ; GFX12-OFF-NEXT:   S_ENDPGM 0
+  bb.0:
+    successors: %bb.1(0x40000000), %bb.2(0x40000000)
+    liveins: $vgpr4, $vgpr5, $vgpr6_vgpr7_vgpr8, $vgpr9_vgpr10_vgpr11, $vgpr12_vgpr13_vgpr14, $vgpr30_vgpr31, $vgpr40, $vgpr41, $sgpr0_sgpr1_sgpr2_sgpr3, $sgpr8, $vcc_lo
+
+    $vgpr0_vgpr1_vgpr2_vgpr3 = IMAGE_BVH_INTERSECT_RAY_gfx12 killed $vgpr4, killed $vgpr5, killed $vgpr6_vgpr7_vgpr8, killed $vgpr9_vgpr10_vgpr11, killed $vgpr12_vgpr13_vgpr14, killed renamable $sgpr0_sgpr1_sgpr2_sgpr3, 0, implicit $exec :: (dereferenceable load (s128), addrspace 8)
+    $sgpr8 = S_AND_SAVEEXEC_B32 killed $vcc_lo, implicit-def $exec, implicit-def $scc, implicit $exec
+    S_CBRANCH_EXECZ %bb.2, implicit $exec
+
+  bb.1:
+    successors: %bb.2(0x80000000)
+    liveins: $sgpr8, $vgpr0_vgpr1_vgpr2_vgpr3, $vgpr30_vgpr31, $vgpr40, $vgpr41, $sgpr4_sgpr5_sgpr6_sgpr7, $vgpr20_vgpr21_vgpr22, $vgpr23_vgpr24_vgpr25, $vgpr26_vgpr27_vgpr28
+
+    $vgpr32 = V_LSHLREV_B32_e32 3, killed $vgpr40, implicit $exec
+    $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
+    $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
+    $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
+    BUNDLE implicit-def $vgpr5_vgpr6_vgpr7_vgpr8, implicit-def $vgpr9_vgpr10_vgpr11_vgpr12, implicit-def $vgpr13_vgpr14_vgpr15_vgpr16, implicit killed $vgpr33_vgpr34, implicit $exec :: (load (s128), addrspace 1), (load (s128), addrspace 1), (load (s128), addrspace 1) {
+      $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
+      $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
+      $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
+    }
+    $vgpr35_vgpr36_vgpr37_vgpr38 = IMAGE_BVH_INTERSECT_RAY_gfx12 killed $vgpr0, killed $vgpr1, killed $vgpr20_vgpr21_vgpr22, killed $vgpr23_vgpr24_vgpr25, killed $vgpr26_vgpr27_vgpr28, killed renamable $sgpr4_sgpr5_sgpr6_sgpr7, 0, implicit $exec :: (dereferenceable load (s128), addrspace 8)
+    V_CMP_EQ_U32_e32 -1, killed $vgpr2, implicit-def $vcc, implicit $exec
+    $vgpr17 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr7, 0, killed $vgpr8, 0, 0, implicit $mode, implicit $exec
+    $vgpr18 = V_FMA_F32_e64 0, $vgpr41, 0, killed $vgpr11, 0, killed $vgpr12, 0, 0, implicit $mode, implicit $exec
+    $vgpr19 = V_FMA_F32_e64 0, killed $vgpr41, 0, killed $vgpr15, 0, killed $vgpr16, 0, 0, implicit $mode, implicit $exec
+
+  bb.2:
+    liveins: $sgpr8
+
     $exec_lo = S_OR_B32 $exec_lo, killed $sgpr8, implicit-def $scc
     S_ENDPGM 0
 ...

@@ -452,11 +452,11 @@ body: |
   ; GFX12-ON-NEXT:   $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
+  ; GFX12-ON-NEXT:   S_WAIT_BVHCNT 0
+  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
-  ; GFX12-ON-NEXT:   S_WAIT_BVHCNT 0
-  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT:   S_WAIT_LOADCNT 2
   ; GFX12-ON-NEXT:   $vgpr17 = V_FMA_F32_e64 0, $vgpr41, 0, $vgpr7, 0, killed $vgpr8, 0, 0, implicit $mode, implicit $exec
   ; GFX12-ON-NEXT:   S_WAIT_LOADCNT 1
@@ -730,14 +730,14 @@ body: |
   ; GFX12-ON-NEXT:   $vgpr5 = V_AND_B32_e32 4294967232, killed $vgpr5, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr17, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr6, killed $vgpr5, 0, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr18, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr7, killed $vcc_lo, 0, implicit $exec
+  ; GFX12-ON-NEXT:   S_WAIT_BVHCNT 0
+  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr17_vgpr18, 0, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr17_vgpr18, 16, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 $vgpr17_vgpr18, 32, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   $vgpr43 = GLOBAL_LOAD_DWORD $vgpr17_vgpr18, 48, 0, implicit $exec :: (load (s32), addrspace 1)
   ; GFX12-ON-NEXT:   $vgpr22_vgpr23 = GLOBAL_LOAD_DWORDX2 $vgpr17_vgpr18, 56, 0, implicit $exec :: (load (s64), addrspace 1)
   ; GFX12-ON-NEXT:   $vgpr39 = GLOBAL_LOAD_DWORD killed $vgpr17_vgpr18, 68, 0, implicit $exec :: (load (s32), addrspace 1)
-  ; GFX12-ON-NEXT:   S_WAIT_BVHCNT 0
-  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT:   S_WAIT_LOADCNT 5
   ; GFX12-ON-NEXT:   $vgpr19 = V_FMA_F32_e64 0, $vgpr32, 0, $vgpr7, 0, killed $vgpr8, 0, 0, implicit $mode, implicit $exec
   ; GFX12-ON-NEXT:   S_WAIT_LOADCNT 4
@@ -1013,13 +1013,13 @@ body: |
   ; GFX12-ON-NEXT:   $vgpr32 = V_AND_B32_e32 -64, killed $vgpr32, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr33, $vcc_lo = V_ADD_CO_U32_e64 killed $vgpr30, killed $vgpr32, 0, implicit $exec
   ; GFX12-ON-NEXT:   $vgpr34, dead $sgpr_null = V_ADDC_U32_e64 0, killed $vgpr31, killed $vcc_lo, 0, implicit $exec
+  ; GFX12-ON-NEXT:   S_WAIT_BVHCNT 0
+  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT:   BUNDLE implicit-def $vgpr5_vgpr6_vgpr7_vgpr8, implicit-def $vgpr9_vgpr10_vgpr11_vgpr12, implicit-def $vgpr13_vgpr14_vgpr15_vgpr16, implicit killed $vgpr33_vgpr34, implicit $exec :: (load (s128), addrspace 1), (load (s128), addrspace 1), (load (s128), addrspace 1) {
   ; GFX12-ON-NEXT:     $vgpr5_vgpr6_vgpr7_vgpr8 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 0, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:     $vgpr9_vgpr10_vgpr11_vgpr12 = GLOBAL_LOAD_DWORDX4 $vgpr33_vgpr34, 16, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:     $vgpr13_vgpr14_vgpr15_vgpr16 = GLOBAL_LOAD_DWORDX4 killed $vgpr33_vgpr34, 32, 0, implicit $exec :: (load (s128), addrspace 1)
   ; GFX12-ON-NEXT:   }
-  ; GFX12-ON-NEXT:   S_WAIT_BVHCNT 0
-  ; GFX12-ON-NEXT:   V_CMP_EQ_U32_e32 -1, killed $vgpr1, implicit-def $vcc_lo, implicit $exec
   ; GFX12-ON-NEXT:   S_WAIT_LOADCNT 2
   ; GFX12-ON-NEXT:   $vgpr17 = V_FMA_F32_e64 0, $vgpr41, 0, $vgpr7, 0, killed $vgpr8, 0, 0, implicit $mode, implicit $exec
   ; GFX12-ON-NEXT:   S_WAIT_LOADCNT 1
