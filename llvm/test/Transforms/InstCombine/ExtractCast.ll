@@ -23,3 +23,51 @@ define i32 @b(<4 x float> %I) {
   ret i32 %K
 }
 
+define { i32, i32 } @sext_all_extracts(<2 x i16> %v) {
+; CHECK-LABEL: @sext_all_extracts(
+; CHECK-NEXT:    [[TMP1:%.*]] = extractelement <2 x i16> [[V:%.*]], i64 0
+; CHECK-NEXT:    [[X:%.*]] = sext i16 [[TMP1]] to i32
+; CHECK-NEXT:    [[TMP2:%.*]] = extractelement <2 x i16> [[V]], i64 1
+; CHECK-NEXT:    [[Y:%.*]] = sext i16 [[TMP2]] to i32
+; CHECK-NEXT:    [[R0:%.*]] = insertvalue { i32, i32 } poison, i32 [[X]], 0
+; CHECK-NEXT:    [[R1:%.*]] = insertvalue { i32, i32 } [[R0]], i32 [[Y]], 1
+; CHECK-NEXT:    ret { i32, i32 } [[R1]]
+;
+  %e = sext <2 x i16> %v to <2 x i32>
+  %x = extractelement <2 x i32> %e, i64 0
+  %y = extractelement <2 x i32> %e, i64 1
+  %r0 = insertvalue { i32, i32 } poison, i32 %x, 0
+  %r1 = insertvalue { i32, i32 } %r0, i32 %y, 1
+  ret { i32, i32 } %r1
+}
+
+define { i32, i32 } @zext_all_extracts(<2 x i16> %v) {
+; CHECK-LABEL: @zext_all_extracts(
+; CHECK-NEXT:    [[TMP1:%.*]] = extractelement <2 x i16> [[V:%.*]], i64 0
+; CHECK-NEXT:    [[X:%.*]] = zext i16 [[TMP1]] to i32
+; CHECK-NEXT:    [[TMP2:%.*]] = extractelement <2 x i16> [[V]], i64 1
+; CHECK-NEXT:    [[Y:%.*]] = zext i16 [[TMP2]] to i32
+; CHECK-NEXT:    [[R0:%.*]] = insertvalue { i32, i32 } poison, i32 [[X]], 0
+; CHECK-NEXT:    [[R1:%.*]] = insertvalue { i32, i32 } [[R0]], i32 [[Y]], 1
+; CHECK-NEXT:    ret { i32, i32 } [[R1]]
+;
+  %e = zext <2 x i16> %v to <2 x i32>
+  %x = extractelement <2 x i32> %e, i64 0
+  %y = extractelement <2 x i32> %e, i64 1
+  %r0 = insertvalue { i32, i32 } poison, i32 %x, 0
+  %r1 = insertvalue { i32, i32 } %r0, i32 %y, 1
+  ret { i32, i32 } %r1
+}
+
+define i32 @sext_mixed_use(<2 x i16> %v, ptr %p) {
+; CHECK-LABEL: @sext_mixed_use(
+; CHECK-NEXT:    [[E:%.*]] = sext <2 x i16> [[V:%.*]] to <2 x i32>
+; CHECK-NEXT:    [[X:%.*]] = extractelement <2 x i32> [[E]], i64 0
+; CHECK-NEXT:    store <2 x i32> [[E]], ptr [[P:%.*]], align 8
+; CHECK-NEXT:    ret i32 [[X]]
+;
+  %e = sext <2 x i16> %v to <2 x i32>
+  %x = extractelement <2 x i32> %e, i64 0
+  store <2 x i32> %e, ptr %p
+  ret i32 %x
+}
