@@ -430,14 +430,19 @@ static bool canSinkCastThroughExtract(CastInst *Cast, ExtractElementInst &EI,
   if (Cast->hasOneUse())
     return true;
 
-  // With multiple uses, only sink widening casts (sext/zext/fpext) used solely
-  // by extractelements: the narrower operand keeps this cheap and fully
-  // replaces the wide cast. Other casts are left to the single-use case.
+  // With multiple uses, only sink widening casts (sext/zext/fpext) whose every
+  // user is a sinkable extractelement (same block as the cast or a constant
+  // index). This ensures the wide cast is fully removed rather than left
+  // alongside the new scalar casts. Other casts are left to the single-use case.
   switch (Cast->getOpcode()) {
   case Instruction::SExt:
   case Instruction::ZExt:
   case Instruction::FPExt:
-    return all_of(Cast->users(), IsaPred<ExtractElementInst>);
+    return all_of(Cast->users(), [&](User *U) {
+      auto *EE = dyn_cast<ExtractElementInst>(U);
+      return EE && (EE->getParent() == Cast->getParent() ||
+                    isa<ConstantInt>(EE->getIndexOperand()));
+    });
   default:
     return false;
   }

@@ -71,3 +71,37 @@ define i32 @sext_mixed_use(<2 x i16> %v, ptr %p) {
   store <2 x i32> %e, ptr %p
   ret i32 %x
 }
+
+; The extract in %other has a non-constant index and lives in a different block
+; from the cast, so it can never be sunk. Because that user cannot be sunk, the
+; wide cast cannot be fully removed, so the constant-index extract in %entry must
+; not be sunk either (otherwise the wide cast would survive next to a new scalar
+; cast). Both extracts keep using the wide zext.
+define void @zext_unsinkable_user(<2 x i32> %v, i64 %idx, i1 %cond, ptr %p, ptr %q) {
+; CHECK-LABEL: @zext_unsinkable_user(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[E:%.*]] = zext <2 x i32> [[V:%.*]] to <2 x i64>
+; CHECK-NEXT:    [[C:%.*]] = extractelement <2 x i64> [[E]], i64 0
+; CHECK-NEXT:    store i64 [[C]], ptr [[P:%.*]], align 4
+; CHECK-NEXT:    br i1 [[COND:%.*]], label [[OTHER:%.*]], label [[EXIT:%.*]]
+; CHECK:       other:
+; CHECK-NEXT:    [[A:%.*]] = extractelement <2 x i64> [[E]], i64 [[IDX:%.*]]
+; CHECK-NEXT:    store i64 [[A]], ptr [[Q:%.*]], align 4
+; CHECK-NEXT:    br label [[EXIT]]
+; CHECK:       exit:
+; CHECK-NEXT:    ret void
+;
+entry:
+  %e = zext <2 x i32> %v to <2 x i64>
+  %c = extractelement <2 x i64> %e, i64 0
+  store i64 %c, ptr %p
+  br i1 %cond, label %other, label %exit
+
+other:
+  %a = extractelement <2 x i64> %e, i64 %idx
+  store i64 %a, ptr %q
+  br label %exit
+
+exit:
+  ret void
+}
