@@ -107,6 +107,28 @@ static bool canSafelyConvertTo16Bit(Value &V, bool IsFloat,
       return true;
   }
 
+  // Per-lane vector coordinate: extractelement((s|z|fp)ext <N x i16/half>), Idx.
+  // The extractelement(cast) -> cast(extractelement) canonicalization only fires
+  // for single-use casts, so a multi-use widening cast is left in place; match
+  // that form here too.
+  Value *VecCast, *VecSrc;
+  if (match(&V, m_ExtractElt(PatternMatch::m_Value(VecCast),
+                             PatternMatch::m_Value()))) {
+    bool IsVecExt =
+        IsFloat
+            ? match(VecCast, m_FPExt(PatternMatch::m_Value(VecSrc)))
+            : match(VecCast, m_ZExt(PatternMatch::m_Value(VecSrc))) ||
+                  (AllowI16SExt &&
+                   match(VecCast, m_SExt(PatternMatch::m_Value(VecSrc))));
+    // Image coordinates are fixed-width vectors; bail on scalable types.
+    if (IsVecExt)
+      if (auto *VecTy = dyn_cast<FixedVectorType>(VecSrc->getType())) {
+        Type *EltTy = VecTy->getElementType();
+        if (EltTy->isHalfTy() || EltTy->isIntegerTy(16))
+          return true;
+      }
+  }
+
   return false;
 }
 
@@ -115,6 +137,14 @@ static Value *convertTo16Bit(Value &V, InstCombiner::BuilderTy &Builder) {
   Type *VTy = V.getType();
   if (isa<FPExtInst, SExtInst, ZExtInst>(&V))
     return cast<Instruction>(&V)->getOperand(0);
+  // Vector form: extractelement((s|z|fp)ext Vec), Idx -> extractelement(Vec, Idx),
+  // taking the narrow lane directly so the widening cast can be removed.
+  Value *VecCast, *Idx;
+  if (match(&V, m_ExtractElt(PatternMatch::m_Value(VecCast),
+                             PatternMatch::m_Value(Idx))) &&
+      isa<FPExtInst, SExtInst, ZExtInst>(VecCast))
+    return Builder.CreateExtractElement(
+        cast<Instruction>(VecCast)->getOperand(0), Idx);
   if (VTy->isIntegerTy())
     return Builder.CreateIntCast(&V, Type::getInt16Ty(V.getContext()), false);
   if (VTy->isFloatingPointTy())

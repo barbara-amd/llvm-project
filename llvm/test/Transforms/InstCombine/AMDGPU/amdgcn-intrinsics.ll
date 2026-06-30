@@ -4018,6 +4018,37 @@ define amdgpu_kernel void @image_load_a16_mip_2d_const_noopt(ptr addrspace(1) %o
   ret void
 }
 
+; Packed vector coordinate: the multi-use widening cast is left un-sunk, so the
+; a16 fold matches extractelement((s|z)ext <2 x i16>) directly.
+define amdgpu_kernel void @image_load_a16_mip_2d_sext_vec(ptr addrspace(1) %out, <8 x i32> inreg %rsrc, <2 x i16> %coord) {
+  %coord32 = sext <2 x i16> %coord to <2 x i32>
+  %s32 = extractelement <2 x i32> %coord32, i64 0
+  %t32 = extractelement <2 x i32> %coord32, i64 1
+  %res = call <4 x float> @llvm.amdgcn.image.load.mip.2d.v4f32.i32.v8i32(i32 15, i32 %s32, i32 %t32, i32 0, <8 x i32> %rsrc, i32 0, i32 0)
+  store <4 x float> %res, ptr addrspace(1) %out
+  ret void
+}
+
+; Same as above but with a zext.
+define amdgpu_kernel void @image_load_a16_mip_2d_zext_vec(ptr addrspace(1) %out, <8 x i32> inreg %rsrc, <2 x i16> %coord) {
+  %coord32 = zext <2 x i16> %coord to <2 x i32>
+  %s32 = extractelement <2 x i32> %coord32, i64 0
+  %t32 = extractelement <2 x i32> %coord32, i64 1
+  %res = call <4 x float> @llvm.amdgcn.image.load.mip.2d.v4f32.i32.v8i32(i32 15, i32 %s32, i32 %t32, i32 0, <8 x i32> %rsrc, i32 0, i32 0)
+  store <4 x float> %res, ptr addrspace(1) %out
+  ret void
+}
+
+; Negative: the source element is i8, not i16/half, so the a16 fold does not match.
+define amdgpu_kernel void @image_load_a16_mip_2d_zext_vec_i8_noopt(ptr addrspace(1) %out, <8 x i32> inreg %rsrc, <2 x i8> %coord) {
+  %coord32 = zext <2 x i8> %coord to <2 x i32>
+  %s32 = extractelement <2 x i32> %coord32, i64 0
+  %t32 = extractelement <2 x i32> %coord32, i64 1
+  %res = call <4 x float> @llvm.amdgcn.image.load.mip.2d.v4f32.i32.v8i32(i32 15, i32 %s32, i32 %t32, i32 0, <8 x i32> %rsrc, i32 0, i32 0)
+  store <4 x float> %res, ptr addrspace(1) %out
+  ret void
+}
+
 ; --------------------------------------------------------------------
 ; llvm.amdgcn.image.sample g16
 ; --------------------------------------------------------------------
