@@ -29,9 +29,8 @@
 #include "AMDGPUVMemUseOrdering.h"
 #include "AMDGPUWaitcntUtils.h"
 #include "GCNSubtarget.h"
+#include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstr.h"
@@ -54,10 +53,84 @@ static cl::opt<unsigned> VMemUseOrderingMaxDepth(
              "VMEM-pending registers"),
     cl::init(8), cl::Hidden);
 
+// A region entered with many already-outstanding VMEM loads on one counter
+// class is counter-bound: SIInsertWaitcnts emits an in-order descending
+// partial-wait staircase that is already close to optimal.  Adding
+// load->consumer edges on such a class hoists the region's own loads above
+// the consumer wall, co-mingling them with the deep live-in counter and
+// collapsing staircase rungs into a full drain.  Above this per-class
+// pending-unit count we therefore leave the class alone.  0 disables the gate.
+static cl::opt<unsigned> VMemUseOrderingMaxPendingDepth(
+    "amdgpu-vmem-use-ordering-max-pending-depth",
+    cl::desc("Skip adding VMEM-load ordering edges for a counter class once "
+             "more than this many register units are already VMEM-pending at "
+             "region entry on that class (0 disables the gate)"),
+    cl::init(8), cl::Hidden);
+
 namespace {
+
+// True iff Reg is a VGPR/AGPR - the only regs a pure VMEM load can write, and
+// hence the only reg units that can ever be VMEM-pending.  Seeding non-vector
+// candidates would only make classify() walk scalar live-ins to full depth for
+// units that can never be marked pending.
+static bool isVectorPhysReg(MCRegister Reg, const TargetRegisterInfo &TRI) {
+  const TargetRegisterClass *RC = TRI.getPhysRegBaseClass(Reg);
+  return RC &&
+         (SIRegisterInfo::isVGPRClass(RC) || SIRegisterInfo::isAGPRClass(RC));
+}
 
 class VMemUseOrdering : public ScheduleDAGMutation {
   const GCNSubtarget &ST;
+
+  // Scratch bit-sets reused across regions (grown lazily, reset per region) to
+  // avoid per-region heap traffic.  Indexed by the key named in each comment.
+  BitVector VisitedMBBs;   // [MBB number]  block already seen by classify()
+  BitVector DfsBV;         // [SUnit NodeNum] node seen by leaf-pruning DFS
+  BitVector CandsBV;       // [reg unit]    candidate use awaiting classify
+  BitVector DefinedBV;     // [reg unit]    defined somewhere in the region
+  BitVector PendingBV[AMDGPU::NUM_INST_CNTS]; // [reg unit] pending, per counter class
+  BitVector PendingAnyBV; // [reg unit] union of PendingBV: pending on any class
+
+  // MCRegUnit is enum class : unsigned; BitVector needs a plain unsigned index.
+  static unsigned ruIdx(MCRegUnit U) { return static_cast<unsigned>(U); }
+
+  void growSU(unsigned N) {
+    if (DfsBV.size() < N)
+      DfsBV.resize(N);
+  }
+  void growRU(unsigned N) {
+    if (CandsBV.size() < N)
+      CandsBV.resize(N);
+    if (DefinedBV.size() < N)
+      DefinedBV.resize(N);
+    for (BitVector &BV : PendingBV)
+      if (BV.size() < N)
+        BV.resize(N);
+    if (PendingAnyBV.size() < N)
+      PendingAnyBV.resize(N);
+  }
+
+  /// Mark reg unit \p U as VMEM-pending on counter class \p Cls: the first
+  /// class seen sticks; a later different class makes the unit ambiguous (set
+  /// in every VMEM class so it matches any counter); the same class is a no-op.
+  void markPending(unsigned U, AMDGPU::InstCounterType Cls) {
+    if (!PendingAnyBV.test(U)) { // first reaching VMEM def: its class sticks
+      PendingAnyBV.set(U);
+      PendingBV[Cls].set(U);
+      return;
+    }
+    bool InL = PendingBV[AMDGPU::LOAD_CNT].test(U);
+    bool InS = PendingBV[AMDGPU::SAMPLE_CNT].test(U);
+    bool InB = PendingBV[AMDGPU::BVH_CNT].test(U);
+    bool OnlyThis = (Cls == AMDGPU::LOAD_CNT && InL && !InS && !InB) ||
+                    (Cls == AMDGPU::SAMPLE_CNT && InS && !InL && !InB) ||
+                    (Cls == AMDGPU::BVH_CNT && InB && !InL && !InS);
+    if (OnlyThis)
+      return;
+    PendingBV[AMDGPU::LOAD_CNT].set(U);
+    PendingBV[AMDGPU::SAMPLE_CNT].set(U);
+    PendingBV[AMDGPU::BVH_CNT].set(U);
+  }
 
   /// Counter class completed by a pure VMEM load. getVmemLoadCounter treats a
   /// BUNDLE header as LOAD_CNT, so for a clause use its first VMEM-load member.
@@ -74,66 +147,74 @@ class VMemUseOrdering : public ScheduleDAGMutation {
     return AMDGPU::LOAD_CNT;
   }
 
-  /// Backward walker: scan \p MBB upward from just before \p Stop, then recurse
-  /// into predecessors (depth-bounded; \p Visited scans each block once). For a
-  /// unit in \p Cands, its closest reaching reference resolves it: a pure
-  /// VMEM-load def records it in \p Pending under the class it completes; any
-  /// other def, or a use (value already consumed and thus waited), drops it.
-  /// Explicit s_waitcnts are not modeled, so an already-waited value may stay
-  /// pending - harmless, only adds latency-0 edges. Conflicting classes across
-  /// paths map to NUM_INST_CNTS ("any").
+  /// Backward walk from \p Stop in \p MBB, then predecessors (depth-bounded,
+  /// each block visited once via VisitedMBBs).  Resolves each candidate in
+  /// CandsBV at its closest reaching reference: a pure VMEM-load def marks it
+  /// pending (markPending); any other def, or a use, just drops it.  CandsBV /
+  /// CandsCount are backtracked on return so sibling paths see the original
+  /// set; PendingBV and VisitedMBBs accumulate across paths.
   void classify(const MachineBasicBlock *MBB,
-                MachineBasicBlock::const_iterator Stop,
-                SmallDenseSet<MCRegUnit, 16> Cands,
-                const TargetRegisterInfo &TRI,
-                SmallDenseMap<MCRegUnit, AMDGPU::InstCounterType, 16> &Pending,
-                SmallPtrSetImpl<const MachineBasicBlock *> &Visited,
-                unsigned Depth) {
+                MachineBasicBlock::const_iterator Stop, unsigned &CandsCount,
+                const TargetRegisterInfo &TRI, unsigned Depth) {
+    SmallVector<MCRegUnit, 16> Resolved; // restored on return (backtracking)
     for (auto It = MachineBasicBlock::const_reverse_iterator(Stop),
               E = MBB->rend();
-         It != E && !Cands.empty(); ++It) {
+         It != E && CandsCount > 0; ++It) {
       const MachineInstr &MI = *It;
       if (MI.isMetaInstruction())
         continue;
-      bool IsVMem = AMDGPU::isPureVMemLoad(MI, ST);
-      AMDGPU::InstCounterType Cls = IsVMem ? loadCounter(MI) : AMDGPU::LOAD_CNT;
-      SmallVector<MCRegUnit, 4> Resolved;
+      // Classification is only needed once this instruction actually resolves
+      // a candidate def, so defer it (most scanned instructions resolve none).
+      int IsVMem = -1; // -1 unknown, 0 no, 1 yes
+      AMDGPU::InstCounterType Cls = AMDGPU::LOAD_CNT;
       // Defs first: a pure VMEM-load def leaves the unit pending in its class.
       for (const MachineOperand &MO : MI.operands()) {
         if (!MO.isReg() || !MO.isDef() || !MO.getReg().isPhysical())
           continue;
         for (MCRegUnit U : TRI.regunits(MO.getReg().asMCReg())) {
-          if (!Cands.count(U))
+          if (!CandsBV.test(ruIdx(U)))
             continue;
-          Resolved.push_back(U);
-          if (IsVMem) {
-            auto [It2, Inserted] = Pending.try_emplace(U, Cls);
-            if (!Inserted && It2->second != Cls)
-              It2->second = AMDGPU::NUM_INST_CNTS; // ambiguous: match any class
+          if (IsVMem < 0) {
+            IsVMem = AMDGPU::isPureVMemLoad(MI, ST) ? 1 : 0;
+            if (IsVMem)
+              Cls = loadCounter(MI);
           }
+          CandsBV.reset(ruIdx(U));
+          --CandsCount;
+          Resolved.push_back(U);
+          if (IsVMem)
+            markPending(ruIdx(U), Cls);
         }
       }
-      for (MCRegUnit U : Resolved)
-        Cands.erase(U);
       // A use reached before any def means the value was consumed (waited)
       // pre-region.  Defs run first, so a read-modify-write is classified by
       // its def.
-      Resolved.clear();
       for (const MachineOperand &MO : MI.operands()) {
         if (!MO.isReg() || MO.isDef() || !MO.getReg().isPhysical())
           continue;
-        for (MCRegUnit U : TRI.regunits(MO.getReg().asMCReg()))
-          if (Cands.count(U))
-            Resolved.push_back(U);
+        for (MCRegUnit U : TRI.regunits(MO.getReg().asMCReg())) {
+          if (!CandsBV.test(ruIdx(U)))
+            continue;
+          CandsBV.reset(ruIdx(U));
+          --CandsCount;
+          Resolved.push_back(U);
+        }
       }
-      for (MCRegUnit U : Resolved)
-        Cands.erase(U);
     }
-    if (Cands.empty() || Depth >= VMemUseOrderingMaxDepth)
-      return;
-    for (const MachineBasicBlock *Pred : MBB->predecessors())
-      if (Visited.insert(Pred).second)
-        classify(Pred, Pred->end(), Cands, TRI, Pending, Visited, Depth + 1);
+    if (CandsCount > 0 && Depth < VMemUseOrderingMaxDepth) {
+      for (const MachineBasicBlock *Pred : MBB->predecessors()) {
+        unsigned PredNum = static_cast<unsigned>(Pred->getNumber());
+        if (!VisitedMBBs.test(PredNum)) {
+          VisitedMBBs.set(PredNum);
+          classify(Pred, Pred->end(), CandsCount, TRI, Depth + 1);
+        }
+      }
+    }
+    // Backtrack so sibling predecessors and the caller see the original set.
+    for (MCRegUnit U : Resolved) {
+      CandsBV.set(ruIdx(U));
+      ++CandsCount;
+    }
   }
 
 public:
@@ -158,41 +239,47 @@ public:
 
     // Leaf pruning: drop load A if its successor cone reaches another in-region
     // load B of the same class, since B -> consumer already implies
-    // A -> consumer.  Must stay within a class; a cross-class load cannot stand
-    // in for A.
+    // A -> consumer.  DfsBV (reused) tracks the cone; LoadClass keeps each
+    // load's ORIGINAL class so pruning one never hides it as a stand-in for
+    // another.  A cross-class load cannot stand in for A.
     if (VMemLoads.size() > 1) {
-      SmallDenseMap<SUnit *, AMDGPU::InstCounterType, 8> LoadClass;
+      growSU(DAG->SUnits.size());
+      SmallDenseMap<unsigned, AMDGPU::InstCounterType, 8> LoadClass;
       for (auto &[L, C] : VMemLoads)
-        LoadClass[L] = C;
-      SmallPtrSet<SUnit *, 32> Visited;
+        LoadClass[L->NodeNum] = C;
       SmallVector<SUnit *, 16> Stack;
-      llvm::erase_if(VMemLoads,
-                     [&](std::pair<SUnit *, AMDGPU::InstCounterType> &LC) {
-                       Stack.clear();
-                       Visited.clear();
-                       for (const SDep &D : LC.first->Succs)
-                         Stack.push_back(D.getSUnit());
-                       while (!Stack.empty()) {
-                         SUnit *S = Stack.pop_back_val();
-                         if (!Visited.insert(S).second)
-                           continue;
-                         auto It = LoadClass.find(S);
-                         if (It != LoadClass.end() && It->second == LC.second)
-                           return true;
-                         for (const SDep &D : S->Succs)
-                           Stack.push_back(D.getSUnit());
-                       }
-                       return false;
-                     });
+      llvm::erase_if(
+          VMemLoads, [&](const std::pair<SUnit *, AMDGPU::InstCounterType> &LC) {
+            DfsBV.reset();
+            Stack.clear();
+            for (const SDep &D : LC.first->Succs)
+              if (D.getSUnit()->NodeNum < DfsBV.size())
+                Stack.push_back(D.getSUnit());
+            while (!Stack.empty()) {
+              SUnit *S = Stack.pop_back_val();
+              if (DfsBV.test(S->NodeNum))
+                continue;
+              DfsBV.set(S->NodeNum);
+              auto It = LoadClass.find(S->NodeNum);
+              if (It != LoadClass.end() && It->second == LC.second)
+                return true;
+              for (const SDep &D : S->Succs)
+                if (D.getSUnit()->NodeNum < DfsBV.size())
+                  Stack.push_back(D.getSUnit());
+            }
+            return false;
+          });
     }
 
     // Seed candidates from physreg uses read in-region (nothing else can have a
     // consumer here), minus units also defined in-region (those read the
     // in-region producer, which already carries a Data dep - so a live-in read
     // preceding an in-region redef is conservatively missed).  MCRegUnit gives
-    // uniform sub-register aliasing.
-    SmallDenseSet<MCRegUnit, 16> Cands;
-    SmallDenseSet<MCRegUnit, 16> Defined;
+    // uniform sub-register aliasing.  CandsBV/DefinedBV are reused bit-sets.
+    const MachineBasicBlock *MBB = DAG->begin()->getParent();
+    growRU(TRI->getNumRegUnits());
+    CandsBV.reset();
+    DefinedBV.reset();
     for (SUnit &SU : DAG->SUnits) {
       const MachineInstr *MI = SU.getInstr();
       if (!MI || MI->isMetaInstruction())
@@ -200,71 +287,108 @@ public:
       for (const MachineOperand &MO : MI->operands()) {
         if (!MO.isReg() || !MO.getReg().isPhysical())
           continue;
-        for (MCRegUnit U : TRI->regunits(MO.getReg().asMCReg())) {
-          if (MO.isDef())
-            Defined.insert(U);
-          else
-            Cands.insert(U);
-        }
+        MCRegister Reg = MO.getReg().asMCReg();
+        if (MO.isDef())
+          for (MCRegUnit U : TRI->regunits(Reg))
+            DefinedBV.set(ruIdx(U));
+        else if (isVectorPhysReg(Reg, *TRI)) // only vector units can be pending
+          for (MCRegUnit U : TRI->regunits(Reg))
+            CandsBV.set(ruIdx(U));
       }
     }
-    for (MCRegUnit U : Defined)
-      Cands.erase(U);
-    if (Cands.empty())
+    CandsBV.reset(DefinedBV); // CandsBV &= ~DefinedBV
+    unsigned CandsCount = CandsBV.count();
+    if (CandsCount == 0)
       return;
 
-    // Classify each candidate by its closest reaching definition.
-    const MachineBasicBlock *MBB = DAG->begin()->getParent();
-    SmallDenseMap<MCRegUnit, AMDGPU::InstCounterType, 16> Pending;
-    SmallPtrSet<const MachineBasicBlock *, 16> Visited;
-    Visited.insert(MBB);
-    classify(MBB, DAG->begin(), std::move(Cands), *TRI, Pending, Visited, 0);
-    if (Pending.empty())
+    // Classify each candidate by its closest reaching definition into the
+    // per-class PendingBV bit-sets (an ambiguous unit ends up set in every
+    // class).  VisitedMBBs is sized to the whole function's block count.
+    for (BitVector &BV : PendingBV)
+      BV.reset();
+    PendingAnyBV.reset();
+    unsigned NumBlocks = MBB->getParent()->getNumBlockIDs();
+    if (VisitedMBBs.size() < NumBlocks)
+      VisitedMBBs.resize(NumBlocks);
+    VisitedMBBs.reset();
+    VisitedMBBs.set(static_cast<unsigned>(MBB->getNumber()));
+    classify(MBB, DAG->begin(), CandsCount, *TRI, 0);
+    if (PendingAnyBV.none())
       return;
+
+    // Region-entry pending depth per VMEM counter class (an ambiguous unit is
+    // set in every class, so it counts toward each).
+    unsigned PendingDepth[AMDGPU::NUM_INST_CNTS] = {};
+    for (unsigned C = 0; C != AMDGPU::NUM_INST_CNTS; ++C)
+      PendingDepth[C] = PendingBV[C].count();
 
     LLVM_DEBUG({
-      dbgs() << "VMemUseOrdering: " << Pending.size() << " pending unit(s) in "
+      dbgs() << "VMemUseOrdering: pending units by class in "
              << MBB->getFullName() << "\n";
-      for (const auto &[U, C] : Pending)
-        dbgs() << "  pending: " << printRegUnit(U, TRI) << " (class "
-               << static_cast<unsigned>(C) << ")\n";
+      for (unsigned C = 0; C != AMDGPU::NUM_INST_CNTS; ++C)
+        if (PendingDepth[C])
+          dbgs() << "  class " << C << ": " << PendingDepth[C]
+                 << (VMemUseOrderingMaxPendingDepth &&
+                             PendingDepth[C] > VMemUseOrderingMaxPendingDepth
+                         ? " (saturated)"
+                         : "")
+                 << "\n";
     });
+
+    // Gate (see VMemUseOrderingMaxPendingDepth): a load whose counter class is
+    // already deep at region entry can never contribute an edge, so drop it
+    // once here rather than re-testing the invariant per consumer below.
+    if (VMemUseOrderingMaxPendingDepth)
+      llvm::erase_if(
+          VMemLoads,
+          [&](const std::pair<SUnit *, AMDGPU::InstCounterType> &LC) {
+            return PendingDepth[LC.second] > VMemUseOrderingMaxPendingDepth;
+          });
+    if (VMemLoads.empty())
+      return;
+
+    // Bucket the surviving loads by counter class so each consumer visits only
+    // the loads on the classes it waits on (pre-GFX12 collapses to one class).
+    SmallVector<SUnit *, 8> LoadsByClass[AMDGPU::NUM_INST_CNTS];
+    for (auto &[L, C] : VMemLoads)
+      LoadsByClass[C].push_back(L);
 
     // For each SUnit reading a pending unit, add Artificial order edges from
     // the matching in-region loads.  addEdge() drops self- and cycle-forming
     // edges; redundant edges are harmless (Artificial latency is 0).
+    const unsigned AllMask = (1u << AMDGPU::LOAD_CNT) |
+                             (1u << AMDGPU::SAMPLE_CNT) | (1u << AMDGPU::BVH_CNT);
     for (SUnit &SU : DAG->SUnits) {
       MachineInstr *MI = SU.getInstr();
       if (!MI || MI->isMetaInstruction())
         continue;
-      // Counter classes this SU waits on via pending units.  Pre-GFX12 all are
-      // LOAD_CNT, so this reduces to "reads any pending unit".
-      SmallDenseSet<unsigned, 4> Classes;
-      bool AnyClass = false;
+      // Counter classes this SU waits on via pending units.  An ambiguous unit
+      // is set in every class, so it selects all buckets; pre-GFX12 this
+      // reduces to "reads any pending unit".
+      unsigned ClassMask = 0;
       for (const MachineOperand &MO : MI->uses()) {
         if (!MO.isReg() || !MO.getReg().isPhysical())
           continue;
         for (MCRegUnit U : TRI->regunits(MO.getReg().asMCReg())) {
-          auto It = Pending.find(U);
-          if (It == Pending.end())
+          unsigned u = ruIdx(U);
+          if (!PendingAnyBV.test(u)) // fast reject: most units aren't pending
             continue;
-          if (It->second == AMDGPU::NUM_INST_CNTS)
-            AnyClass = true;
-          else
-            Classes.insert(static_cast<unsigned>(It->second));
+          for (unsigned C = 0; C != AMDGPU::NUM_INST_CNTS; ++C)
+            if (PendingBV[C].test(u))
+              ClassMask |= 1u << C;
         }
+        if (ClassMask == AllMask) // cannot gain more classes; stop scanning
+          break;
       }
-      if (!AnyClass && Classes.empty())
+      if (!ClassMask)
         continue;
       [[maybe_unused]] unsigned Added = 0;
-      for (auto &[L, LCls] : VMemLoads) {
-        if (L == &SU)
+      for (unsigned C = 0; C != AMDGPU::NUM_INST_CNTS; ++C) {
+        if (!(ClassMask & (1u << C)))
           continue;
-        // Only match a load on a counter class the consumer waits on.
-        if (!AnyClass && !Classes.contains(static_cast<unsigned>(LCls)))
-          continue;
-        if (DAG->addEdge(&SU, SDep(L, SDep::Artificial)))
-          ++Added;
+        for (SUnit *L : LoadsByClass[C])
+          if (L != &SU && DAG->addEdge(&SU, SDep(L, SDep::Artificial)))
+            ++Added;
       }
       LLVM_DEBUG(if (Added) dbgs()
                  << "VMemUseOrdering: added " << Added << " edge(s) to SU("
