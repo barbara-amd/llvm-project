@@ -4223,18 +4223,26 @@ def : GCNPat <
 } // End SubtargetPredicate = HasVOP3PInsts
 
 let AddedComplexity = 5 in {
-class PackB32Pat<Instruction inst> : GCNPat <
-  (v2f16 (is_canonicalized_2<build_vector> (f16 (VOP3Mods (f16 VGPR_32:$src0), i32:$src0_mods)),
-                                           (f16 (VOP3Mods (f16 VGPR_32:$src1), i32:$src1_mods)))),
+class PackB32Pat<Instruction inst, ValueType vecTy, ValueType Ty> : GCNPat <
+  (vecTy (is_canonicalized_2<build_vector> (Ty (VOP3Mods (Ty VGPR_32:$src0), i32:$src0_mods)),
+                                           (Ty (VOP3Mods (Ty VGPR_32:$src1), i32:$src1_mods)))),
   (inst $src0_mods, VGPR_32:$src0, $src1_mods, VGPR_32:$src1)
 >;
 }
+// V_PACK_B32_F16 looks like a plain 16-bit copy, but it flushes f16
+// denormals in flush-to-zero mode. Only safe for f16, and for i16 values
+// known to be canonicalized f16 bit patterns -- not bf16, since an ordinary
+// bf16 value can alias an f16-denormal pattern and would be wrongly zeroed.
 let SubtargetPredicate = isGFX9Plus in {
+foreach vecTy = [v2i16, v2f16] in {
+defvar Ty = vecTy.ElementType;
+
 let True16Predicate = NotHasTrue16BitInsts in
-  def : PackB32Pat<V_PACK_B32_F16_e64>;
+  def : PackB32Pat<V_PACK_B32_F16_e64, vecTy, Ty>;
 
 let True16Predicate = UseFakeTrue16Insts in
-  def : PackB32Pat<V_PACK_B32_F16_fake16_e64>;
+  def : PackB32Pat<V_PACK_B32_F16_fake16_e64, vecTy, Ty>;
+} // end foreach vecTy
 } // End SubtargetPredicate = isGFX9Plus
 
 // With multiple uses of the shift, this will duplicate the shift and
