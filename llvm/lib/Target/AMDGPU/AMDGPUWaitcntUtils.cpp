@@ -7,8 +7,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPUWaitcntUtils.h"
+#include "GCNSubtarget.h"
 #include "MCTargetDesc/AMDGPUMCTargetDesc.h"
+#include "SIInstrInfo.h"
 #include "Utils/AMDGPUBaseInfo.h"
+#include "llvm/CodeGen/MachineInstr.h"
+#include "llvm/CodeGen/MachineMemOperand.h"
 
 namespace llvm::AMDGPU {
 
@@ -165,6 +169,47 @@ std::optional<AMDGPU::InstCounterType> counterTypeForInstr(unsigned Opcode) {
   default:
     return {};
   }
+}
+
+//===----------------------------------------------------------------------===//
+// VMEM-load classification primitives.
+//===----------------------------------------------------------------------===//
+
+bool updateVMCntOnly(const MachineInstr &MI) {
+  return (SIInstrInfo::isVMEM(MI) && !SIInstrInfo::isFLAT(MI)) ||
+         SIInstrInfo::isFLATGlobal(MI) || SIInstrInfo::isFLATScratch(MI);
+}
+
+bool isVmemCounterLoad(const MachineInstr &MI, const GCNSubtarget &ST) {
+  if (updateVMCntOnly(MI))
+    return true;
+  // Generic FLAT increments both vmcnt and lgkmcnt with a shared early-
+  // completion token; a partial vmcnt wait is only a reliable signal that
+  // the load result is observable on subtargets where the two counters
+  // complete in order.
+  return SIInstrInfo::isFLAT(MI) && ST.hasFlatLgkmVMemCountInOrder();
+}
+
+bool isPureVMemLoad(const MachineInstr &MI, const GCNSubtarget &ST) {
+  if (!MI.mayLoad() || MI.mayStore() || MI.hasUnmodeledSideEffects())
+    return false;
+  for (const MachineMemOperand *MMO : MI.memoperands())
+    if (MMO->getPseudoValue())
+      return false;
+  if (MI.getOpcode() != TargetOpcode::BUNDLE)
+    return isVmemCounterLoad(MI, ST);
+  bool SawMember = false;
+  for (auto It = std::next(MI.getIterator()), E = MI.getParent()->instr_end();
+       It != E && It->isBundledWithPred(); ++It) {
+    if (It->isMetaInstruction())
+      continue;
+    if (!It->mayLoad() || It->mayStore() || It->hasUnmodeledSideEffects())
+      return false;
+    if (!isVmemCounterLoad(*It, ST))
+      return false;
+    SawMember = true;
+  }
+  return SawMember;
 }
 
 } // namespace llvm::AMDGPU

@@ -18,6 +18,7 @@
 #include "AMDGPU.h"
 #include "AMDGPUAliasAnalysis.h"
 #include "AMDGPUAsmPrinter.h"
+#include "AMDGPUBVHLiveInUseOrdering.h"
 #include "AMDGPUBarrierLatency.h"
 #include "AMDGPUCoExecSchedStrategy.h"
 #include "AMDGPUCtorDtorLowering.h"
@@ -532,6 +533,13 @@ static cl::opt<bool>
     EnableVOPD("amdgpu-enable-vopd",
                cl::desc("Enable VOPD, dual issue of VALU in wave32"),
                cl::init(true), cl::Hidden);
+
+static cl::opt<bool> EnableBVHLiveInUseOrdering(
+    "amdgpu-bvh-livein-use-ordering",
+    cl::desc("Add ordering edges so post-RA scheduling does not move "
+             "consumers of BVH-pending live-ins ahead of in-region VMEM "
+             "loads"),
+    cl::init(true), cl::Hidden);
 
 // Option is used in lit tests to prevent deadcoding of patterns inspected.
 static cl::opt<bool>
@@ -1456,6 +1464,12 @@ GCNTargetMachine::createPostMachineScheduler(MachineSchedContext *C) const {
   DAG->addMutation(createAMDGPUExportClusteringDAGMutation());
   DAG->addMutation(createAMDGPUBarrierLatencyDAGMutation(C->MF));
   DAG->addMutation(createAMDGPUHazardLatencyDAGMutation(C->MF));
+  // Post-RA only: uses physreg live-ins and physreg defs; not applicable to
+  // pre-RA iterative schedulers.
+  if ((EnableBVHLiveInUseOrdering.getNumOccurrences() ||
+       getOptLevel() >= CodeGenOptLevel::Less) &&
+      EnableBVHLiveInUseOrdering)
+    DAG->addMutation(createAMDGPUBVHLiveInUseOrderingDAGMutation(C->MF));
   return DAG;
 }
 //===----------------------------------------------------------------------===//

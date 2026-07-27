@@ -5,6 +5,25 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+//
+/// \file
+/// Shared waitcnt analysis primitives for AMDGPU passes.
+///
+/// This header is the public surface of a small "waitcnt estimation toolkit":
+/// helpers that let a pass reason about VMEM-counter pending state without
+/// owning a full WaitcntBrackets-style scoreboard.  It contains:
+///
+///   - the InstCounterType enumeration and the Waitcnt value class,
+///   - encode/decode helpers for the various s_waitcnt encodings,
+///   - VMEM-load classification predicates (is a load "pure" for
+///     VMEM-pending purposes, does a VMEM counter alone suffice, ...).
+///
+/// SIInsertWaitcnts uses these primitives for its VMEM-load classification
+/// (see updateVMCntOnly / getVmemType), keeping the bracket-based scoreboard
+/// it maintains on top.  Other waitcnt-aware analyses (e.g. DAG mutations)
+/// can rely on this header instead of reaching into pass-private code.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_TARGET_AMDGPU_AMDGPUWAITCNTUTILS_H
 #define LLVM_LIB_TARGET_AMDGPU_AMDGPUWAITCNTUTILS_H
@@ -16,6 +35,9 @@
 #include "llvm/TargetParser/AMDGPUTargetParser.h"
 
 namespace llvm {
+
+class GCNSubtarget;
+class MachineInstr;
 
 namespace AMDGPU {
 
@@ -202,6 +224,32 @@ unsigned encodeStorecntDscnt(const IsaVersion &Version, const Waitcnt &Decoded);
 /// Determine if \p MI is a gfx12+ single-counter S_WAIT_*CNT instruction,
 /// and if so, which counter it is waiting on.
 std::optional<AMDGPU::InstCounterType> counterTypeForInstr(unsigned Opcode);
+
+//===----------------------------------------------------------------------===//
+// VMEM-load classification primitives.
+//
+// Canonical home for the small predicates that answer "what kind of VMEM
+// load is this?".  SIInsertWaitcnts uses these helpers directly (see
+// updateVMCntOnly / getVmemType in SIInsertWaitcnts.cpp), and other passes
+// that want lightweight waitcnt awareness can do the same without having
+// to reach into SIInsertWaitcnts internals.
+//===----------------------------------------------------------------------===//
+
+/// \returns true iff \p MI increments only VMEM-class counters
+/// (loadcnt/samplecnt/bvhcnt/storecnt; vmcnt/vscnt on pre-GFX12).
+/// Includes BUF, image, and segment-specific FLAT; excludes generic FLAT.
+bool updateVMCntOnly(const MachineInstr &MI);
+
+/// \returns true iff a VMEM counter alone is sufficient to wait for \p MI's
+/// result.  This is updateVMCntOnly() plus generic FLAT loads on subtargets
+/// where \see GCNSubtarget::hasFlatLgkmVMemCountInOrder holds.
+bool isVmemCounterLoad(const MachineInstr &MI, const GCNSubtarget &ST);
+
+/// \returns true iff \p MI is a non-store, side-effect-free VMEM load that
+/// completes on a VMEM counter alone, with no pseudo-source memory operands
+/// (i.e. not a spill reload).  For BUNDLE: every member of the bundle must
+/// independently satisfy the same criteria.
+bool isPureVMemLoad(const MachineInstr &MI, const GCNSubtarget &ST);
 
 } // namespace AMDGPU
 
